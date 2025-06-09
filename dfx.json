@@ -11,8 +11,7 @@
       "source": [
         "src/FitnFrame_frontend/dist"
       ],
-      "type": "assets",
-      "workspace": "FitnFrame_frontend"
+      "type": "assets"
     },
     "internet_identity": {
       "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",

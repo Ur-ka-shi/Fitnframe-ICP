@@ -5,13 +5,15 @@ import { defineConfig } from 'vite';
 import environment from 'vite-plugin-environment';
 import dotenv from 'dotenv';
 
-
 dotenv.config({ path: '../../.env' });
 
 export default defineConfig({
+  base: "./", // ✅ THIS FIXES BLANK FRONTEND ON ICP
+
   build: {
     emptyOutDir: true,
   },
+
   optimizeDeps: {
     esbuildOptions: {
       define: {
@@ -19,6 +21,7 @@ export default defineConfig({
       },
     },
   },
+
   server: {
     proxy: {
       "/api": {
@@ -27,15 +30,18 @@ export default defineConfig({
       },
     },
   },
+
   plugins: [
     react(),
     environment("all", { prefix: "CANISTER_" }),
     environment("all", { prefix: "DFX_" }),
   ],
+
   test: {
     environment: 'jsdom',
     setupFiles: 'src/setupTests.js',
   },
+
   resolve: {
     alias: [
       {
@@ -47,5 +53,4 @@ export default defineConfig({
     ],
     dedupe: ['@dfinity/agent'],
   },
-
 });

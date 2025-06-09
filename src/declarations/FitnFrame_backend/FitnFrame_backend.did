@@ -94,10 +94,13 @@ type Block =
    transactions: vec Transaction;
  };
 service : {
-  addTransaction: (principal, nat, TransactionType) -> (Result_2);
-  completeChallenge: (text, principal) -> (Result_1);
-  createChallenge: (text, text, text, nat, int, nat, principal) -> (Result_1);
-  exchangeRepCoinsForCurrency: (nat, text, nat, text) -> (Result_2);
+  addTransaction: (recipient: principal, amount: nat, txType:
+   TransactionType) -> (Result_2);
+  completeChallenge: (challengeId: text, userId: principal) -> (Result_1);
+  createChallenge: (id: text, name: text, description: text, targetReps: 
+   nat, durationHours: int, reward: nat, creator: principal) -> (Result_1);
+  exchangeRepCoinsForCurrency: (amount: nat, currencyType: text,
+   exchangeRate: nat, externalTxId: text) -> (Result_2);
   getActiveChallenges: () -> (vec Challenge) query;
   getChain: () -> (vec Block) query;
   getChallenges: () -> (vec Challenge) query;
@@ -106,10 +109,10 @@ service : {
                                  nat;
                                }) query;
   getLatestBlock: () -> (opt Block) query;
-  getLeaderboard: (nat) -> (vec User) query;
+  getLeaderboard: (limit: nat) -> (vec User) query;
   getPendingTransactions: () -> (vec Transaction) query;
   getUser: () -> (Result) query;
-  getUserByPrincipal: (principal) -> (Result) query;
-  joinChallenge: (text, principal) -> (Result_1);
-  registerUser: (text) -> (Result);
+  getUserByPrincipal: (userId: principal) -> (Result) query;
+  joinChallenge: (challengeId: text, userId: principal) -> (Result_1);
+  registerUser: (username: text) -> (Result);
 }

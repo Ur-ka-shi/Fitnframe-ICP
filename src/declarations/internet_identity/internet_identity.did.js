@@ -40,6 +40,7 @@ export const idlFactory = ({ IDL }) => {
     'is_production' : IDL.Opt(IDL.Bool),
     'enable_dapps_explorer' : IDL.Opt(IDL.Bool),
     'assigned_user_number_range' : IDL.Opt(IDL.Tuple(IDL.Nat64, IDL.Nat64)),
+    'new_flow_origins' : IDL.Opt(IDL.Vec(IDL.Text)),
     'archive_config' : IDL.Opt(ArchiveConfig),
     'canister_creation_cycles_cost' : IDL.Opt(IDL.Nat64),
     'analytics_config' : IDL.Opt(IDL.Opt(AnalyticsConfig)),
@@ -176,6 +177,19 @@ export const idlFactory = ({ IDL }) => {
     'UnexpectedCall' : IDL.Record({ 'next_step' : RegistrationFlowNextStep }),
     'WrongSolution' : IDL.Record({ 'new_captcha_png_base64' : IDL.Text }),
   });
+  const FrontendHostname = IDL.Text;
+  const AccountNumber = IDL.Nat64;
+  const AccountInfo = IDL.Record({
+    'name' : IDL.Opt(IDL.Text),
+    'origin' : IDL.Text,
+    'account_number' : IDL.Opt(AccountNumber),
+    'last_used' : IDL.Opt(Timestamp),
+  });
+  const CreateAccountError = IDL.Variant({
+    'AccountLimitReached' : IDL.Null,
+    'InternalCanisterError' : IDL.Text,
+    'Unauthorized' : IDL.Principal,
+  });
   const ChallengeKey = IDL.Text;
   const Challenge = IDL.Record({
     'png_base64' : IDL.Text,
@@ -191,6 +205,25 @@ export const idlFactory = ({ IDL }) => {
     'entry' : IDL.Vec(IDL.Nat8),
     'anchor_number' : UserNumber,
     'timestamp' : Timestamp,
+  });
+  const SessionKey = PublicKey;
+  const Delegation = IDL.Record({
+    'pubkey' : PublicKey,
+    'targets' : IDL.Opt(IDL.Vec(IDL.Principal)),
+    'expiration' : Timestamp,
+  });
+  const SignedDelegation = IDL.Record({
+    'signature' : IDL.Vec(IDL.Nat8),
+    'delegation' : Delegation,
+  });
+  const AccountDelegationError = IDL.Variant({
+    'NoSuchDelegation' : IDL.Null,
+    'InternalCanisterError' : IDL.Text,
+    'Unauthorized' : IDL.Principal,
+  });
+  const GetAccountsError = IDL.Variant({
+    'InternalCanisterError' : IDL.Text,
+    'Unauthorized' : IDL.Principal,
   });
   const WebAuthnCredential = IDL.Record({
     'pubkey' : PublicKey,
@@ -220,27 +253,17 @@ export const idlFactory = ({ IDL }) => {
     'iss' : Iss,
     'sub' : Sub,
     'metadata' : MetadataMapV2,
-    'last_usage_timestamp' : Timestamp,
+    'last_usage_timestamp' : IDL.Opt(Timestamp),
   });
   const DeviceRegistrationInfo = IDL.Record({
     'tentative_device' : IDL.Opt(DeviceData),
     'expiration' : Timestamp,
   });
   const IdentityAnchorInfo = IDL.Record({
+    'name' : IDL.Opt(IDL.Text),
     'devices' : IDL.Vec(DeviceWithUsage),
     'openid_credentials' : IDL.Opt(IDL.Vec(OpenIdCredential)),
     'device_registration' : IDL.Opt(DeviceRegistrationInfo),
-  });
-  const FrontendHostname = IDL.Text;
-  const SessionKey = PublicKey;
-  const Delegation = IDL.Record({
-    'pubkey' : PublicKey,
-    'targets' : IDL.Opt(IDL.Vec(IDL.Principal)),
-    'expiration' : Timestamp,
-  });
-  const SignedDelegation = IDL.Record({
-    'signature' : IDL.Vec(IDL.Nat8),
-    'delegation' : Delegation,
   });
   const GetDelegationResponse = IDL.Variant({
     'no_such_delegation' : IDL.Null,
@@ -323,7 +346,10 @@ export const idlFactory = ({ IDL }) => {
       'space_available' : IDL.Nat64,
     }),
   });
-  const IdRegFinishArg = IDL.Record({ 'authn_method' : AuthnMethodData });
+  const IdRegFinishArg = IDL.Record({
+    'name' : IDL.Opt(IDL.Text),
+    'authn_method' : AuthnMethodData,
+  });
   const IdRegFinishResult = IDL.Record({ 'identity_number' : IDL.Nat64 });
   const IdRegFinishError = IDL.Variant({
     'NoRegistrationFlow' : IDL.Null,
@@ -336,6 +362,10 @@ export const idlFactory = ({ IDL }) => {
     'InvalidCaller' : IDL.Null,
     'AlreadyInProgress' : IDL.Null,
     'RateLimitExceeded' : IDL.Null,
+  });
+  const DeviceKeyWithAnchor = IDL.Record({
+    'pubkey' : DeviceKey,
+    'anchor_number' : UserNumber,
   });
   const JWT = IDL.Text;
   const Salt = IDL.Vec(IDL.Nat8);
@@ -362,6 +392,10 @@ export const idlFactory = ({ IDL }) => {
     'user_key' : UserKey,
     'expiration' : Timestamp,
     'anchor_number' : UserNumber,
+  });
+  const PrepareAccountDelegation = IDL.Record({
+    'user_key' : UserKey,
+    'expiration' : Timestamp,
   });
   const PrepareIdAliasRequest = IDL.Record({
     'issuer' : FrontendHostname,
@@ -399,6 +433,12 @@ export const idlFactory = ({ IDL }) => {
     'event_aggregations' : IDL.Vec(
       IDL.Tuple(IDL.Text, IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat64)))
     ),
+  });
+  const AccountUpdate = IDL.Record({ 'name' : IDL.Opt(IDL.Text) });
+  const UpdateAccountError = IDL.Variant({
+    'AccountLimitReached' : IDL.Null,
+    'InternalCanisterError' : IDL.Text,
+    'Unauthorized' : IDL.Principal,
   });
   const VerifyTentativeDeviceResponse = IDL.Variant({
     'device_registration_mode_off' : IDL.Null,
@@ -495,11 +535,42 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'config' : IDL.Func([], [InternetIdentityInit], ['query']),
+    'create_account' : IDL.Func(
+        [UserNumber, FrontendHostname, IDL.Text],
+        [IDL.Variant({ 'Ok' : AccountInfo, 'Err' : CreateAccountError })],
+        [],
+      ),
     'create_challenge' : IDL.Func([], [Challenge], []),
     'deploy_archive' : IDL.Func([IDL.Vec(IDL.Nat8)], [DeployArchiveResult], []),
     'enter_device_registration_mode' : IDL.Func([UserNumber], [Timestamp], []),
     'exit_device_registration_mode' : IDL.Func([UserNumber], [], []),
     'fetch_entries' : IDL.Func([], [IDL.Vec(BufferedArchiveEntry)], []),
+    'get_account_delegation' : IDL.Func(
+        [
+          UserNumber,
+          FrontendHostname,
+          IDL.Opt(AccountNumber),
+          SessionKey,
+          Timestamp,
+        ],
+        [
+          IDL.Variant({
+            'Ok' : SignedDelegation,
+            'Err' : AccountDelegationError,
+          }),
+        ],
+        ['query'],
+      ),
+    'get_accounts' : IDL.Func(
+        [UserNumber, FrontendHostname],
+        [
+          IDL.Variant({
+            'Ok' : IDL.Vec(AccountInfo),
+            'Err' : GetAccountsError,
+          }),
+        ],
+        ['query'],
+      ),
     'get_anchor_credentials' : IDL.Func(
         [UserNumber],
         [AnchorCredentials],
@@ -555,6 +626,11 @@ export const idlFactory = ({ IDL }) => {
       ),
     'init_salt' : IDL.Func([], [], []),
     'lookup' : IDL.Func([UserNumber], [IDL.Vec(DeviceData)], ['query']),
+    'lookup_device_key' : IDL.Func(
+        [IDL.Vec(IDL.Nat8)],
+        [IDL.Opt(DeviceKeyWithAnchor)],
+        ['query'],
+      ),
     'openid_credential_add' : IDL.Func(
         [IdentityNumber, JWT, Salt],
         [IDL.Variant({ 'Ok' : IDL.Null, 'Err' : OpenIdCredentialAddError })],
@@ -590,6 +666,22 @@ export const idlFactory = ({ IDL }) => {
         ],
         [],
       ),
+    'prepare_account_delegation' : IDL.Func(
+        [
+          UserNumber,
+          FrontendHostname,
+          IDL.Opt(AccountNumber),
+          SessionKey,
+          IDL.Opt(IDL.Nat64),
+        ],
+        [
+          IDL.Variant({
+            'Ok' : PrepareAccountDelegation,
+            'Err' : AccountDelegationError,
+          }),
+        ],
+        [],
+      ),
     'prepare_delegation' : IDL.Func(
         [UserNumber, FrontendHostname, SessionKey, IDL.Opt(IDL.Nat64)],
         [UserKey, Timestamp],
@@ -609,6 +701,11 @@ export const idlFactory = ({ IDL }) => {
     'replace' : IDL.Func([UserNumber, DeviceKey, DeviceData], [], []),
     'stats' : IDL.Func([], [InternetIdentityStats], ['query']),
     'update' : IDL.Func([UserNumber, DeviceKey, DeviceData], [], []),
+    'update_account' : IDL.Func(
+        [UserNumber, FrontendHostname, IDL.Opt(AccountNumber), AccountUpdate],
+        [IDL.Variant({ 'Ok' : AccountInfo, 'Err' : UpdateAccountError })],
+        [],
+      ),
     'verify_tentative_device' : IDL.Func(
         [UserNumber, IDL.Text],
         [VerifyTentativeDeviceResponse],
@@ -656,6 +753,7 @@ export const init = ({ IDL }) => {
     'is_production' : IDL.Opt(IDL.Bool),
     'enable_dapps_explorer' : IDL.Opt(IDL.Bool),
     'assigned_user_number_range' : IDL.Opt(IDL.Tuple(IDL.Nat64, IDL.Nat64)),
+    'new_flow_origins' : IDL.Opt(IDL.Vec(IDL.Text)),
     'archive_config' : IDL.Opt(ArchiveConfig),
     'canister_creation_cycles_cost' : IDL.Opt(IDL.Nat64),
     'analytics_config' : IDL.Opt(IDL.Opt(AnalyticsConfig)),
