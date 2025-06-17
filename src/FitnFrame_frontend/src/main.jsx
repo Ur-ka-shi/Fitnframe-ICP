@@ -2,26 +2,20 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
-import { IdentityKit, IdentityKitAuthType, NFIDW, InternetIdentity } from "@nfid/identitykit";
-import "@nfid/identitykit/react/styles.css";
+
+import "@nfid/identitykit/react/styles.css"; // NFID UI styles
+
+import { IdentityKitProvider } from "@nfid/identitykit/react"; // ✅ THIS IS IMPORTANT
 import { AuthProvider } from './StateManagement/useContext/useClient';
 
-const signers = [NFIDW, InternetIdentity];
-const canisterID = import.meta.env.CANISTER_ID_FITNFRAME_BACKEND;
+const root = ReactDOM.createRoot(document.getElementById('root'));
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <IdentityKit
-    signers={signers}
-    authType={IdentityKitAuthType.DELEGATION}
-    signerClientOptions={{
-      targets: [canisterID],
-      retryTimes: 2
-    }}
-  >
-    <React.StrictMode>
+root.render(
+  <React.StrictMode>
+    <IdentityKitProvider> {/* ✅ Add this wrapper */}
       <AuthProvider>
         <App />
       </AuthProvider>
-    </React.StrictMode>
-  </IdentityKit>
+    </IdentityKitProvider>
+  </React.StrictMode>
 );

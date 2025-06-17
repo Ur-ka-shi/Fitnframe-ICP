@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .dfx/
 deploy_wallet/
+# Prevent sensitive config files
+.env
+ic-assets.json

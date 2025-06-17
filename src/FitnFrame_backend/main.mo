@@ -113,6 +113,7 @@ actor FitnFrame {
     previousHash : Text;
     hash : Text;
     nonce : Nat;
+    
   };
 
   // Storage variables
